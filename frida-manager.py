@@ -240,12 +240,15 @@ def restart_devices(devices):
 
 
 def main_menu():
-    print("1 - Instalar Frida Server")
-    print("2 - Instalar Frida Tools")
-    print("3 - Iniciar Frida Server")
-    print("4 - Stop Frida Server")
-    print("5 - Remover Frida Server")
-    print("6 - Reiniciar Dispositivos")
+    print("................................................")
+    print(".    T O O L S    -    FRIDA MANAGER           .")
+    print("................................................")
+    print("[1] - Instalar Frida Server")
+    print("[2] - Instalar Frida Tools")
+    print("[3] - Iniciar Frida Server")
+    print("[4] - Stop Frida Server")
+    print("[5] - Remover Frida Server")
+    print("[6] - Reiniciar Dispositivos")
     choice = input("Escolha uma opção: ")
     if choice == '1':
         devices = list_devices()
