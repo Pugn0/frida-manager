@@ -1,5 +1,9 @@
 import subprocess
 from termcolor import colored
+from colorama import init, Fore, Style
+
+# Inicializar colorama para suportar cores no terminal do Windows
+init(autoreset=True)
 
 def list_devices():
     try:
