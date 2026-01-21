@@ -1,122 +1,123 @@
 import frida
 import os
+import sys
+import time
+
 print("""\033[96m
-'########::'##::::'##::'######:::'##::: ##::'#######::
- ##.... ##: ##:::: ##:'##... ##:: ###:: ##:'##.... ##:
- ##:::: ##: ##:::: ##: ##:::..::: ####: ##: ##:::: ##:
- ########:: ##:::: ##: ##::'####: ## ## ##: ##:::: ##:
- ##.....::: ##:::: ##: ##::: ##:: ##. ####: ##:::: ##:
- ##:::::::: ##:::: ##: ##::: ##:: ##:. ###: ##:::: ##:
- ##::::::::. #######::. ######::: ##::. ##:. #######::
-..::::::::::.......::::......::::..::::..:::.......:::
-Telegram: @pugno_fc          
- """)
+███████╗██████╗ ██╗██████╗  █████╗
+██╔════╝██╔══██╗██║██╔══██╗██╔══██╗
+█████╗  ██████╔╝██║██║  ██║███████║
+██╔══╝  ██╔══██╗██║██║  ██║██╔══██║
+██║     ██║  ██║██║██████╔╝██║  ██║
+╚═╝     ╚═╝  ╚═╝╚═╝╚═════╝ ╚═╝  ╚═╝
 
-devices = frida.enumerate_devices()
+Multi-Spawn Universal Loader
+Telegram: @pugno_fc
+""")
 
-# Verifica se o dispositivo está disponível
+# =============================
+# ENUMERAR DISPOSITIVOS
+# =============================
+try:
+    devices = frida.enumerate_devices()
+except Exception as e:
+    print(f"\033[31m[ERRO] Falha ao enumerar dispositivos: {e}\033[0m")
+    sys.exit(1)
+
+if not devices:
+    print("\033[31m[ERRO] Nenhum dispositivo encontrado.\033[0m")
+    sys.exit(1)
+
 while True:
     print("\033[37mDispositivos disponíveis:")
-    for index, device in enumerate(devices):
-        print(f"\033[32m{index + 1}. {device}")
-
-    device_choice = input("\033[37mSelecione o dispositivo pelo número: ")
+    for i, d in enumerate(devices):
+        print(f"\033[32m{i+1}. {d}")
 
     try:
-        # Imprime informações sobre o dispositivo selecionado
-        selected_device = devices[int(device_choice) - 1]
-        print(f"\033[36mDispositivo selecionado: {device.id} - {device.name} \033[37m")
+        choice = int(input("\033[37mSelecione o dispositivo: ")) - 1
+        device = devices[choice]
+        print(f"\033[36m[✓] Usando: {device.name}\033[0m")
         break
     except (ValueError, IndexError):
-        print("\033[31mEscolha inválida. Tente novamente.")
+        print("\033[31mEscolha inválida.\033[0m")
 
-
-device = selected_device
-
-
-# Verifica se o arquivo do script existe
-script_dir = os.path.dirname(os.path.abspath(__file__)) + "/scripts"
-js_files = [f for f in os.listdir(script_dir) if f.endswith('.js')]
+# =============================
+# CARREGAR SCRIPT JS
+# =============================
+script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+js_files = [f for f in os.listdir(script_dir) if f.endswith(".js")]
 
 if not js_files:
-    print("\033[91mNenhum arquivo .js encontrado no diretório de scripts\033[0m")
-    exit()
+    print("\033[31m[ERRO] Nenhum .js encontrado em /scripts\033[0m")
+    sys.exit(1)
 
-print("Selecione o arquivo .js:")
+print("\nScripts disponíveis:")
 for i, f in enumerate(js_files):
     print(f"\033[94m{i+1}. {f}")
 
 while True:
-    selected_file = input("\033[0mDigite o número correspondente ao arquivo: ")
     try:
-        selected_file_index = int(selected_file) - 1
-        if selected_file_index < 0 or selected_file_index >= len(js_files):
-            raise ValueError
+        idx = int(input("\033[37mEscolha o script JS: ")) - 1
+        script_path = os.path.join(script_dir, js_files[idx])
         break
-    except ValueError:
-        print("\033[91mOpção inválida. Tente novamente.\033[0m")
+    except (ValueError, IndexError):
+        print("\033[31mOpção inválida.\033[0m")
 
-script_path = os.path.join(script_dir, js_files[selected_file_index])
-
-# Lê o conteúdo do arquivo do script
 with open(script_path, "r", encoding="utf8") as f:
-    jscode = f.read()
+    JS_CODE = f.read()
 
-# Função chamada sempre que um novo processo é criado
-def spawn_added(spawn):
-    print(f"[+] Novo processo criado:\033[93m {spawn}\033[37m")
-    # Define o nome do pacote do aplicativo alvo
-    target = spawn.identifier
-
-
-    # Verifica se o processo é o alvo
-    if spawn.identifier.startswith(target):
-        # Anexa uma sessão do Frida ao processo
-        print(f"[+] Anexando ao processo {spawn.pid}")
-        session = device.attach(spawn.pid)
-
-        # Cria um script e carrega o código do arquivo "antiroot.js"
-        script = session.create_script(jscode)
-
-        # Adiciona a função 'on_message' para lidar com as mensagens do script
-        script.on('message', on_message)
-
-        # Carrega o script e inicia a execução
-        script.load()
-
-    # Retoma o processo
-    device.resume(spawn.pid)
-
-# Função chamada sempre que uma mensagem é recebida do script injetado
+# =============================
+# CALLBACKS
+# =============================
 def on_message(message, data):
-    if message['type'] == 'send':
-        # Imprime o payload da mensagem
-        print("[*] Payload recebido: {0}".format(message['payload']))
+    if message["type"] == "send":
+        print(f"\033[33m[{message.get('pid','?')}] {message['payload']}\033[0m")
+    elif message["type"] == "error":
+        print(f"\033[31m[JS ERROR] {message['description']}\033[0m")
     else:
-        # Imprime a mensagem completa
         print(message)
 
-# Adiciona a função 'spawn_added' para lidar com a criação de novos processos
-device.on('spawn-added', spawn_added)
+def spawn_added(spawn):
+    print(f"\033[32m[+] Spawn: {spawn.identifier} | PID {spawn.pid}\033[0m")
 
-# Habilita a monitoração de novos processos criados
-device.enable_spawn_gating()
-print('Monitorando novos processos')
+    try:
+        session = device.attach(spawn.pid)
+        script = session.create_script(JS_CODE)
 
-# Aguarda uma entrada do usuário para encerrar o programa
-input()
+        script.on("message", lambda m, d: on_message(
+            {**m, "pid": spawn.pid}, d
+        ))
 
+        script.load()
+    except frida.TransportError:
+        print("\033[31m[!] Falha de transporte (versão ou frida-server)\033[0m")
+    except Exception as e:
+        print(f"\033[31m[!] Erro ao injetar: {e}\033[0m")
 
+    try:
+        device.resume(spawn.pid)
+    except Exception:
+        pass
 
+# =============================
+# SPAWN GATING
+# =============================
+device.on("spawn-added", spawn_added)
 
-'''
-TABELA DE CORES
+try:
+    device.enable_spawn_gating()
+    print("\033[36m[✓] Spawn gating ATIVO (multi-spawn)\033[0m")
+except frida.PermissionDeniedError:
+    print("\033[31m[ERRO] ROOT necessário para spawn gating.\033[0m")
+    sys.exit(1)
+except frida.TransportError:
+    print("\033[31m[ERRO] frida-server não acessível.\033[0m")
+    sys.exit(1)
 
-Vermelho: "\033[31m"
-Verde: "\033[32m"
-Amarelo: "\033[33m"
-Azul: "\033[34m"
-Magenta: "\033[35m"
-Ciano: "\033[36m"
-Branco: "\033[37m"
-'''
+print("\n[*] Monitorando TODOS os processos (CTRL+C para sair)\n")
+
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    print("\n[*] Encerrando...")
